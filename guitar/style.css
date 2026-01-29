@@ -1,0 +1,890 @@
+/* ========== CSS CUSTOM PROPERTIES ========== */
+:root {
+  --bg-primary: #121212;
+  --bg-secondary: #1e1e2e;
+  --bg-card: #252540;
+  --bg-hover: #2e2e4a;
+  --text-primary: #e8e8ec;
+  --text-secondary: #9898b0;
+  --text-muted: #686880;
+  --accent: #e94560;
+  --accent-dim: #a03048;
+  --accent-secondary: #7c3aed;
+  --note-bg: #2a2a48;
+  --note-text: #e0e0f0;
+  --root-bg: #e94560;
+  --root-text: #fff;
+  --quality-major: #3b82f6;
+  --quality-minor: #8b5cf6;
+  --quality-dim: #f59e0b;
+  --quality-aug: #10b981;
+  --border-color: #333355;
+  --radius: 6px;
+  --radius-sm: 4px;
+  --font-main: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+/* ========== RESET & BASE ========== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 14px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-main);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+  padding-bottom: 20px;
+}
+
+h1, h2, h3 {
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* ========== HEADER ========== */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg-secondary);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+header h1 {
+  font-size: 1.1rem;
+  text-align: center;
+  margin-bottom: 10px;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* ========== NOTE SELECTOR ========== */
+#note-selector {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  max-width: 500px;
+  margin: 0 auto 10px;
+}
+
+.note-btn {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 8px 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: var(--font-main);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.note-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+}
+
+.note-btn.active {
+  background: var(--accent);
+  color: var(--root-text);
+  border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(233, 69, 96, 0.3);
+}
+
+/* ========== KEY INFO ========== */
+#key-info {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+#key-info span {
+  background: var(--bg-card);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+}
+
+/* ========== MAIN ========== */
+main {
+  padding: 12px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ========== SCALE GROUPS ========== */
+.scale-group {
+  margin-bottom: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.scale-group summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  list-style: none;
+  display: flex;
+  align-items: center;
+}
+
+.scale-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.scale-group summary::before {
+  content: '\25B6';
+  font-size: 0.7rem;
+  margin-right: 8px;
+  transition: transform 0.2s;
+  color: var(--text-secondary);
+}
+
+.scale-group[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.scale-group summary h2 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.scale-group table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.scale-group tr {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.scale-group tr:last-child {
+  border-bottom: none;
+}
+
+.scale-group td {
+  padding: 6px 8px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.mode-degree {
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--accent);
+  width: 40px;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.mode-name {
+  font-weight: 600;
+  font-size: 0.85rem;
+  min-width: 100px;
+  color: var(--text-primary);
+}
+
+.mode-subtitle {
+  display: block;
+  font-weight: 400;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.mode-notes {
+  display: flex;
+  gap: 3px;
+  flex-wrap: nowrap;
+}
+
+/* Quality row indicator */
+.quality-major .mode-degree { color: var(--quality-major); }
+.quality-minor .mode-degree { color: var(--quality-minor); }
+.quality-dim .mode-degree { color: var(--quality-dim); }
+.quality-aug .mode-degree { color: var(--quality-aug); }
+
+/* ========== NOTE BADGES ========== */
+.note-badge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  padding: 3px 5px 2px;
+  background: var(--note-bg);
+  color: var(--note-text);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  line-height: 1;
+  gap: 1px;
+}
+
+.note-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.note-interval {
+  font-size: 0.6rem;
+  font-weight: 400;
+  opacity: 0.65;
+}
+
+/* Step labels (W/H) between notes */
+.step-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.55rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  min-width: 14px;
+  opacity: 0.7;
+}
+
+.note-badge.root-note {
+  background: var(--root-bg);
+  color: var(--root-text);
+}
+
+.note-badge.root-note .note-interval {
+  opacity: 0.85;
+}
+
+/* ========== CHORDS SECTION ========== */
+#chords-section {
+  margin-top: 16px;
+}
+
+#chords-section > h2 {
+  font-size: 1.1rem;
+  margin-bottom: 12px;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+#chord-columns {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.chord-col {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 10px;
+}
+
+.chord-col h3 {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.chord-entry {
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(51, 51, 85, 0.5);
+}
+
+.chord-entry:last-child {
+  border-bottom: none;
+}
+
+.chord-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+
+.chord-name {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.chord-abbr {
+  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--accent);
+}
+
+.chord-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.chord-notes {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+/* ========== INTERVALS SECTION ========== */
+#intervals-section {
+  margin-top: 16px;
+}
+
+#intervals-section > h2 {
+  font-size: 1.1rem;
+  margin-bottom: 12px;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+#intervals-text {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 10px;
+}
+
+.interval-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(51, 51, 85, 0.5);
+}
+
+.interval-entry:last-child {
+  border-bottom: none;
+}
+
+.interval-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.interval-abbr {
+  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--accent);
+  min-width: 28px;
+}
+
+.interval-name {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.interval-alt {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+.interval-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.interval-semitones {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* ========== FRETBOARD SECTION ========== */
+#fretboard-section {
+  margin-top: 16px;
+}
+
+#fretboard-section > h2 {
+  font-size: 1.1rem;
+  margin-bottom: 12px;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+#fretboard-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.fb-control-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fb-control-group label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  min-width: 60px;
+  text-align: right;
+  font-weight: 600;
+}
+
+.fb-btn-row {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.fb-btn {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--font-main);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.2;
+  text-align: center;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 32px;
+}
+
+/* Mobile: stack label above buttons, use grid for 2 rows */
+@media (max-width: 599px) {
+  .fb-control-group {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+
+  .fb-control-group label {
+    text-align: left;
+    min-width: unset;
+  }
+
+  .fb-btn-row {
+    display: grid;
+    gap: 4px;
+  }
+
+  #fb-root-buttons {
+    grid-template-columns: repeat(7, 1fr);
+  }
+
+  #fb-interval-buttons {
+    grid-template-columns: repeat(7, 1fr);
+  }
+
+  .fb-btn {
+    padding: 8px 4px;
+    font-size: 0.8rem;
+    min-width: unset;
+    min-height: 36px;
+    justify-content: center;
+  }
+
+  .fb-btn-sub {
+    font-size: 0.65rem;
+  }
+}
+
+.fb-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+}
+
+.fb-btn.fb-btn-active {
+  background: var(--accent);
+  color: var(--root-text);
+  border-color: var(--accent);
+  box-shadow: 0 0 8px rgba(233, 69, 96, 0.3);
+}
+
+.fb-btn-interval.fb-btn-active {
+  background: var(--int-color, var(--accent));
+  border-color: var(--int-color, var(--accent));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--int-color, var(--accent)) 50%, transparent);
+}
+
+.fb-btn-sub {
+  font-size: 0.6rem;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+#fretboard-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 10px 6px;
+}
+
+#fretboard {
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 100%;
+}
+
+.fb-row {
+  display: flex;
+  align-items: center;
+}
+
+.fb-string-label {
+  width: 24px;
+  min-width: 24px;
+  text-align: center;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.fb-header-row .fb-fret {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-align: center;
+  font-family: var(--font-mono);
+}
+
+.fb-fret,
+.fb-cell,
+.fb-fret-dot {
+  width: 48px;
+  min-width: 48px;
+  text-align: center;
+}
+
+.fb-cell {
+  height: 32px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid rgba(51, 51, 85, 0.3);
+}
+
+.fb-nut-cell {
+  border-right: 3px solid var(--text-secondary);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.fb-cell::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--border-color);
+  z-index: 0;
+}
+
+.fb-dot {
+  position: relative;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.fb-dot-note {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #fff;
+  font-family: var(--font-mono);
+}
+
+.fb-dot-interval {
+  font-size: 0.45rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-family: var(--font-mono);
+}
+
+.fb-dot-dim {
+  background: var(--bg-card) !important;
+  opacity: 0.35;
+}
+
+.fb-dot-dim .fb-dot-note {
+  color: var(--text-muted);
+}
+
+.fb-dot-highlight {
+  transform: scale(1.1);
+}
+
+.fb-dots-row {
+  margin-top: 2px;
+}
+
+.fb-fret-dot {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  height: 16px;
+  line-height: 16px;
+}
+
+/* ========== VERTICAL FRETBOARD (mobile) ========== */
+.fb-vertical {
+  display: inline-flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.fbv-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid rgba(51, 51, 85, 0.3);
+}
+
+.fbv-row:last-child {
+  border-bottom: none;
+}
+
+.fbv-nut-row {
+  border-bottom: 3px solid var(--text-secondary);
+}
+
+.fbv-header-row {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.fbv-fret-label {
+  width: 28px;
+  min-width: 28px;
+  text-align: center;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.fbv-header-row .fbv-fret-label {
+  color: transparent;
+}
+
+.fbv-string-label {
+  flex: 1;
+  text-align: center;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  padding: 4px 0;
+}
+
+.fbv-cell {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  position: relative;
+  border-right: 1px solid var(--border-color);
+}
+
+.fbv-cell:last-of-type {
+  border-right: none;
+}
+
+.fbv-cell::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border-color);
+  z-index: 0;
+}
+
+.fbv-dot-col {
+  width: 20px;
+  min-width: 20px;
+  text-align: center;
+  font-size: 0.55rem;
+  color: var(--text-muted);
+}
+
+/* Reuse .fb-dot styles inside vertical layout */
+.fb-vertical .fb-dot {
+  width: 30px;
+  height: 30px;
+}
+
+.fb-vertical .fb-dot-note {
+  font-size: 0.65rem;
+}
+
+.fb-vertical .fb-dot-interval {
+  font-size: 0.45rem;
+}
+
+/* ========== RESPONSIVE: TABLET (600px+) ========== */
+@media (min-width: 600px) {
+  html {
+    font-size: 15px;
+  }
+
+  #note-selector {
+    grid-template-columns: repeat(13, 1fr);
+    max-width: 700px;
+  }
+
+  #chord-columns {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .note-badge {
+    min-width: 34px;
+  }
+
+  .note-name {
+    font-size: 0.85rem;
+  }
+
+  .note-interval {
+    font-size: 0.65rem;
+  }
+
+  .mode-notes {
+    gap: 4px;
+  }
+
+  header h1 {
+    font-size: 1.25rem;
+  }
+
+  #intervals-text {
+    grid-template-columns: 1fr 1fr;
+    gap: 0 16px;
+  }
+
+  .fb-cell {
+    width: 52px;
+    min-width: 52px;
+    height: 34px;
+  }
+
+  .fb-fret,
+  .fb-fret-dot {
+    width: 52px;
+    min-width: 52px;
+  }
+
+  .fb-dot {
+    width: 30px;
+    height: 30px;
+  }
+
+  .fb-dot-note {
+    font-size: 0.65rem;
+  }
+
+  .fb-dot-interval {
+    font-size: 0.5rem;
+  }
+
+}
+
+/* ========== RESPONSIVE: DESKTOP (1024px+) ========== */
+@media (min-width: 1024px) {
+  html {
+    font-size: 16px;
+  }
+
+  main {
+    padding: 20px;
+  }
+
+  #chord-columns {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .note-badge {
+    min-width: 38px;
+    padding: 3px 6px 2px;
+  }
+
+  .note-name {
+    font-size: 0.9rem;
+  }
+
+  .note-interval {
+    font-size: 0.7rem;
+  }
+
+  .mode-notes {
+    gap: 5px;
+  }
+
+  #intervals-text {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0 20px;
+  }
+
+  .fb-cell {
+    width: 56px;
+    min-width: 56px;
+    height: 36px;
+  }
+
+  .fb-fret,
+  .fb-fret-dot {
+    width: 56px;
+    min-width: 56px;
+  }
+
+  .fb-dot {
+    width: 32px;
+    height: 32px;
+  }
+
+  .fb-dot-note {
+    font-size: 0.7rem;
+  }
+
+  .fb-dot-interval {
+    font-size: 0.5rem;
+  }
+}

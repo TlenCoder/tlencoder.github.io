@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Musical Slide Rule</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Musical Slide Rule</h1>
+    <div id="note-selector"></div>
+    <div id="key-info">
+      <span id="key-sig"></span>
+      <span id="relative-info"></span>
+    </div>
+  </header>
+
+  <main>
+    <section id="scales-section">
+      <details class="scale-group" open>
+        <summary><h2>Major Diatonic Modes</h2></summary>
+        <div class="table-wrap">
+          <table id="diatonic-modes"></table>
+        </div>
+      </details>
+
+      <details class="scale-group" open>
+        <summary><h2>Harmonic Minor Modes</h2></summary>
+        <div class="table-wrap">
+          <table id="harmonic-modes"></table>
+        </div>
+      </details>
+
+      <details class="scale-group">
+        <summary><h2>Other Scales</h2></summary>
+        <div class="table-wrap">
+          <table id="other-scales"></table>
+        </div>
+      </details>
+
+      <details class="scale-group">
+        <summary><h2>Pentatonic Scales</h2></summary>
+        <div class="table-wrap">
+          <table id="pentatonic-scales"></table>
+        </div>
+      </details>
+    </section>
+
+    <section id="chords-section">
+      <h2>Chords &amp; Arpeggios</h2>
+      <div id="chord-columns">
+        <div class="chord-col" id="major-chords"></div>
+        <div class="chord-col" id="aug-chords"></div>
+        <div class="chord-col" id="minor-chords"></div>
+        <div class="chord-col" id="dim-chords"></div>
+      </div>
+    </section>
+
+    <section id="intervals-section">
+      <h2>Intervals</h2>
+      <div id="intervals-text"></div>
+    </section>
+
+    <section id="fretboard-section">
+      <h2>Guitar Fretboard</h2>
+      <div id="fretboard-controls">
+        <div class="fb-control-group">
+          <label>Root note:</label>
+          <div id="fb-root-buttons" class="fb-btn-row"></div>
+        </div>
+        <div class="fb-control-group">
+          <label>Interval:</label>
+          <div id="fb-interval-buttons" class="fb-btn-row"></div>
+        </div>
+      </div>
+      <div id="fretboard-wrap">
+        <div id="fretboard"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
