@@ -460,17 +460,33 @@ const INTERVAL_COLORS = {
 };
 
 let fbSelectedRoot = null;   // semitone index of fretboard root, null = use global
-let fbSelectedInterval = null; // semitone offset to highlight, null = all
+// 4 interval selectors: each is null (none) or a semitone offset; index 0 can also be 'all'
+let fbSelectedIntervals = [null, null, null, null];
 
 const fbMobileQuery = window.matchMedia('(max-width: 599px)');
+
+function getActiveIntervals() {
+  // Collect the set of active interval semitones from all 4 selectors
+  const hasAll = fbSelectedIntervals[0] === 'all';
+  if (hasAll) return 'all';
+  const active = new Set();
+  for (const sel of fbSelectedIntervals) {
+    if (sel !== null && sel !== 'all') active.add(sel);
+  }
+  return active.size > 0 ? active : null; // null = none selected = show nothing highlighted
+}
 
 function buildDotHtml(absSemitone, fbRoot, useFlats) {
   const noteName = getNoteName(absSemitone, useFlats);
   const interval = ((absSemitone - fbRoot) % 12 + 12) % 12;
   const intervalLabel = INTERVAL_LABELS[interval] || '';
   const isRoot = interval === 0;
-  const isSelected = fbSelectedInterval !== null && interval === fbSelectedInterval;
-  const showFull = fbSelectedInterval === null || isSelected || isRoot;
+
+  const active = getActiveIntervals();
+  const allMode = active === 'all';
+  const noneSelected = active === null;
+  const isSelected = !allMode && !noneSelected && active.has(interval);
+  const showFull = allMode || isSelected || (noneSelected && isRoot) || (!noneSelected && isRoot);
 
   if (showFull) {
     const color = INTERVAL_COLORS[interval];
@@ -563,7 +579,6 @@ function renderFretboard(root) {
 
 function renderFretboardButtons(root) {
   const rootContainer = document.getElementById('fb-root-buttons');
-  const intervalContainer = document.getElementById('fb-interval-buttons');
 
   // Root note buttons
   let rootHtml = '';
@@ -574,18 +589,33 @@ function renderFretboardButtons(root) {
   });
   rootContainer.innerHTML = rootHtml;
 
-  // Interval buttons
+  // Interval buttons (4 rows)
   const fbRoot = fbSelectedRoot !== null ? fbSelectedRoot : root.index;
-  let intHtml = `<button class="fb-btn${fbSelectedInterval === null ? ' fb-btn-active' : ''}" data-fb-interval="all">All</button>`;
-  for (let i = 0; i < 12; i++) {
-    const label = INTERVAL_LABELS[i] || String(i);
-    const noteName = getNoteName(fbRoot + i, root.useFlats);
-    const isActive = fbSelectedInterval === i;
-    const color = INTERVAL_COLORS[i];
-    const cls = isActive ? 'fb-btn fb-btn-interval fb-btn-active' : 'fb-btn fb-btn-interval';
-    intHtml += `<button class="${cls}" data-fb-interval="${i}" style="--int-color:${color}">${label}<span class="fb-btn-sub">${noteName}</span></button>`;
+  for (let row = 0; row < 4; row++) {
+    const container = document.getElementById(`fb-interval-buttons-${row}`);
+    const selected = fbSelectedIntervals[row];
+    let intHtml = '';
+
+    // None button (default) for all rows
+    intHtml += `<button class="fb-btn${selected === null ? ' fb-btn-active' : ''}" data-fb-interval="none" data-fb-row="${row}">None</button>`;
+
+    // Interval buttons
+    for (let i = 0; i < 12; i++) {
+      const label = INTERVAL_LABELS[i] || String(i);
+      const noteName = getNoteName(fbRoot + i, root.useFlats);
+      const isActive = selected === i;
+      const color = INTERVAL_COLORS[i];
+      const cls = isActive ? 'fb-btn fb-btn-interval fb-btn-active' : 'fb-btn fb-btn-interval';
+      intHtml += `<button class="${cls}" data-fb-interval="${i}" data-fb-row="${row}" style="--int-color:${color}">${label}<span class="fb-btn-sub">${noteName}</span></button>`;
+    }
+
+    // All button only on first row (last position)
+    if (row === 0) {
+      intHtml += `<button class="fb-btn${selected === 'all' ? ' fb-btn-active' : ''}" data-fb-interval="all" data-fb-row="${row}">All</button>`;
+    }
+
+    container.innerHTML = intHtml;
   }
-  intervalContainer.innerHTML = intHtml;
 }
 
 // ========== UPDATE ALL ==========
@@ -653,23 +683,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Fretboard interval buttons
-  document.getElementById('fb-interval-buttons').addEventListener('click', e => {
-    const btn = e.target.closest('[data-fb-interval]');
-    if (!btn) return;
-    const val = btn.dataset.fbInterval;
-    if (val === 'all') {
-      fbSelectedInterval = null;
-    } else {
-      const parsed = parseInt(val, 10);
-      // Toggle: clicking active interval deselects it
-      fbSelectedInterval = (fbSelectedInterval === parsed) ? null : parsed;
-    }
-    if (currentRoot) {
-      renderFretboardButtons(currentRoot);
-      renderFretboard(currentRoot);
-    }
-  });
+  // Fretboard interval buttons (4 rows)
+  for (let row = 0; row < 4; row++) {
+    document.getElementById(`fb-interval-buttons-${row}`).addEventListener('click', e => {
+      const btn = e.target.closest('[data-fb-interval]');
+      if (!btn) return;
+      const val = btn.dataset.fbInterval;
+      if (val === 'none') {
+        fbSelectedIntervals[row] = null;
+      } else if (val === 'all') {
+        fbSelectedIntervals[row] = 'all';
+      } else {
+        const parsed = parseInt(val, 10);
+        // Toggle: clicking active interval deselects it (back to none)
+        fbSelectedIntervals[row] = (fbSelectedIntervals[row] === parsed) ? null : parsed;
+      }
+      if (currentRoot) {
+        renderFretboardButtons(currentRoot);
+        renderFretboard(currentRoot);
+      }
+    });
+  }
 
   // Re-render fretboard on orientation/size change
   fbMobileQuery.addEventListener('change', () => {
