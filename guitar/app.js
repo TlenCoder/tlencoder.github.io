@@ -441,7 +441,7 @@ const STANDARD_TUNING = [
   { name: 'E', semitone: 4 },  // string 6 (low E)
 ];
 
-const FRET_COUNT = 15;
+const FRET_COUNT = 24;
 
 // Color map for intervals on fretboard
 const INTERVAL_COLORS = {
@@ -462,6 +462,23 @@ const INTERVAL_COLORS = {
 let fbSelectedRoot = null;   // semitone index of fretboard root, null = use global
 // 4 interval selectors: each is null (none) or a semitone offset; index 0 can also be 'all'
 let fbSelectedIntervals = [null, null, null, null];
+
+// ========== LINKED HIGHLIGHT SYSTEM ==========
+// MIDI-style absolute note numbers: E2=40, E4=64, E6=88
+const STRING_BASE_NOTES = [64, 59, 55, 50, 45, 40];  // E4, B3, G3, D3, A2, E2 (strings 1-6)
+const PIANO_RANGE = { low: 40, high: 88 };  // E2 to E6
+
+// Store selected positions: fretboard uses string-fret keys, piano uses absNote
+let linkedFretboardPositions = new Set();  // "string-fret" keys like "0-3" for string 0, fret 3
+let linkedPianoNotes = new Set();  // absolute note numbers clicked on piano
+
+function getAbsoluteNote(stringIndex, fret) {
+  return STRING_BASE_NOTES[stringIndex] + fret;
+}
+
+function isBlackKey(semitone) {
+  return [1, 3, 6, 8, 10].includes(semitone % 12);
+}
 
 const fbMobileQuery = window.matchMedia('(max-width: 599px)');
 
@@ -502,8 +519,8 @@ function buildDotHtml(absSemitone, fbRoot, useFlats) {
   </div>`;
 }
 
-const DOT_FRETS = new Set([3, 5, 7, 9, 12, 15]);
-const DOUBLE_DOT_FRETS = new Set([12]);
+const DOT_FRETS = new Set([3, 5, 7, 9, 12, 15, 17, 19, 21, 24]);
+const DOUBLE_DOT_FRETS = new Set([12, 24]);
 
 function renderFretboardHorizontal(root, fbRoot, useFlats) {
   let html = '<div class="fb-row fb-header-row">';
@@ -618,6 +635,353 @@ function renderFretboardButtons(root) {
   }
 }
 
+// ========== PIANO KEYBOARD ==========
+
+function renderPianoKeyboard(root) {
+  const container = document.getElementById('piano-keyboard');
+  const useFlats = root.useFlats;
+
+  // Build white keys first, track positions for black key placement
+  let whiteKeyHtml = '';
+  let blackKeyHtml = '';
+  let whiteKeyCount = 0;
+
+  for (let absNote = PIANO_RANGE.low; absNote <= PIANO_RANGE.high; absNote++) {
+    const semitone = absNote % 12;
+    const octave = Math.floor(absNote / 12) - 1;
+    const noteName = getNoteName(semitone, useFlats);
+
+    if (!isBlackKey(semitone)) {
+      // White key
+      const isC = semitone === 0;
+      const octaveLabel = isC ? `<span class="piano-octave-label">C${octave}</span>` : '';
+      whiteKeyHtml += `<div class="piano-key" data-abs-note="${absNote}" data-semitone="${semitone}">
+        <span class="piano-key-label">${noteName}</span>
+        ${octaveLabel}
+      </div>`;
+      whiteKeyCount++;
+    } else {
+      // Black key - calculate position based on white keys before it
+      // Count white keys from PIANO_RANGE.low to this note
+      let whitesBefore = 0;
+      for (let n = PIANO_RANGE.low; n < absNote; n++) {
+        if (!isBlackKey(n % 12)) whitesBefore++;
+      }
+      blackKeyHtml += `<div class="piano-key black" data-abs-note="${absNote}" data-semitone="${semitone}" style="left: calc(${whitesBefore} * var(--white-key-width) - var(--black-key-width) / 2)">
+        <span class="piano-key-label">${noteName}</span>
+      </div>`;
+    }
+  }
+
+  container.innerHTML = whiteKeyHtml + blackKeyHtml;
+}
+
+function updateLinkedHighlights() {
+  const linkedFretboard = document.getElementById('linked-fretboard');
+  const pianoKeyboard = document.getElementById('piano-keyboard');
+
+  // Clear all highlights
+  linkedFretboard.querySelectorAll('.fb-dot.linked-highlight').forEach(el => {
+    el.classList.remove('linked-highlight');
+  });
+  pianoKeyboard.querySelectorAll('.piano-key.highlighted').forEach(el => {
+    el.classList.remove('highlighted');
+  });
+
+  // Collect all absNotes that should be highlighted on piano
+  const pianoNotesToHighlight = new Set(linkedPianoNotes);
+
+  // Highlight exact fretboard positions and collect their absNotes for piano
+  linkedFretboardPositions.forEach(posKey => {
+    const [stringIndex, fret] = posKey.split('-').map(Number);
+    const absNote = getAbsoluteNote(stringIndex, fret);
+    pianoNotesToHighlight.add(absNote);
+
+    // Highlight only this exact position on fretboard
+    linkedFretboard.querySelectorAll(`.fb-dot[data-string="${stringIndex}"][data-fret="${fret}"]`).forEach(el => {
+      el.classList.add('linked-highlight');
+    });
+  });
+
+  // Highlight piano keys
+  pianoNotesToHighlight.forEach(absNote => {
+    pianoKeyboard.querySelectorAll(`.piano-key[data-abs-note="${absNote}"]`).forEach(el => {
+      el.classList.add('highlighted');
+    });
+  });
+
+  // Update chord display
+  updateChordDisplay();
+}
+
+function clearLinkedHighlights() {
+  linkedFretboardPositions.clear();
+  linkedPianoNotes.clear();
+  updateLinkedHighlights();
+}
+
+// ========== CHORD DETECTION ==========
+
+const CHORD_PATTERNS = [
+  // Extended chords (check these first - more specific)
+  // 13th chords
+  { intervals: [0, 4, 7, 10, 2, 5, 9], name: '13', type: 'Dominant 13' },
+  { intervals: [0, 4, 7, 11, 2, 5, 9], name: 'maj13', type: 'Major 13' },
+  { intervals: [0, 3, 7, 10, 2, 5, 9], name: 'm13', type: 'minor 13' },
+  // 11th chords
+  { intervals: [0, 4, 7, 10, 2, 5], name: '11', type: 'Dominant 11' },
+  { intervals: [0, 4, 7, 11, 2, 5], name: 'maj11', type: 'Major 11' },
+  { intervals: [0, 3, 7, 10, 2, 5], name: 'm11', type: 'minor 11' },
+  { intervals: [0, 4, 7, 10, 2, 6], name: '9#11', type: 'Dominant 9#11' },
+  // 9th chords
+  { intervals: [0, 4, 7, 10, 2], name: '9', type: 'Dominant 9' },
+  { intervals: [0, 4, 7, 11, 2], name: 'maj9', type: 'Major 9' },
+  { intervals: [0, 3, 7, 10, 2], name: 'm9', type: 'minor 9' },
+  { intervals: [0, 3, 7, 11, 2], name: 'mMaj9', type: 'minor-Major 9' },
+  { intervals: [0, 4, 7, 9, 2], name: '6/9', type: 'Major 6/9' },
+  { intervals: [0, 3, 7, 9, 2], name: 'm6/9', type: 'minor 6/9' },
+  // Altered dominants
+  { intervals: [0, 4, 7, 10, 1], name: '7b9', type: 'Dominant 7b9' },
+  { intervals: [0, 4, 7, 10, 3], name: '7#9', type: 'Dominant 7#9' },
+  { intervals: [0, 4, 6, 10], name: '7b5', type: 'Dominant 7b5' },
+  { intervals: [0, 4, 8, 10], name: '7#5', type: 'Dominant 7#5' },
+  { intervals: [0, 4, 6, 10, 1], name: '7b5b9', type: 'Dominant 7b5b9' },
+  { intervals: [0, 4, 8, 10, 1], name: '7#5b9', type: 'Dominant 7#5b9' },
+  { intervals: [0, 4, 6, 10, 3], name: '7b5#9', type: 'Dominant 7b5#9' },
+  { intervals: [0, 4, 8, 10, 3], name: '7#5#9', type: 'Dominant 7#5#9' },
+  { intervals: [0, 4, 7, 10, 6], name: '7#11', type: 'Dominant 7#11' },
+  { intervals: [0, 4, 7, 10, 8], name: '7b13', type: 'Dominant 7b13' },
+  { intervals: [0, 4, 6, 10, 2], name: '9b5', type: 'Dominant 9b5' },
+  { intervals: [0, 4, 8, 10, 2], name: '9#5', type: 'Dominant 9#5' },
+  // Seventh chords
+  { intervals: [0, 4, 7, 11], name: 'maj7', type: 'Major 7' },
+  { intervals: [0, 4, 7, 10], name: '7', type: 'Dominant 7' },
+  { intervals: [0, 3, 7, 10], name: 'm7', type: 'minor 7' },
+  { intervals: [0, 3, 6, 10], name: 'm7b5', type: 'half-diminished' },
+  { intervals: [0, 3, 6, 9], name: 'dim7', type: 'diminished 7' },
+  { intervals: [0, 3, 7, 11], name: 'mMaj7', type: 'minor-Major 7' },
+  { intervals: [0, 4, 8, 11], name: 'maj7#5', type: 'Major 7#5' },
+  { intervals: [0, 4, 6, 11], name: 'maj7b5', type: 'Major 7b5' },
+  { intervals: [0, 5, 7, 10], name: '7sus4', type: 'Dominant 7sus4' },
+  { intervals: [0, 2, 7, 10], name: '7sus2', type: 'Dominant 7sus2' },
+  // Sixths
+  { intervals: [0, 4, 7, 9], name: '6', type: 'Major 6' },
+  { intervals: [0, 3, 7, 9], name: 'm6', type: 'minor 6' },
+  // Add chords
+  { intervals: [0, 4, 7, 2], name: 'add9', type: 'Major add9' },
+  { intervals: [0, 3, 7, 2], name: 'madd9', type: 'minor add9' },
+  { intervals: [0, 4, 7, 5], name: 'add11', type: 'Major add11' },
+  { intervals: [0, 3, 7, 5], name: 'madd11', type: 'minor add11' },
+  { intervals: [0, 4, 7, 9], name: 'add6', type: 'Major add6' },
+  // Triads
+  { intervals: [0, 4, 7], name: '', type: 'Major' },
+  { intervals: [0, 3, 7], name: 'm', type: 'minor' },
+  { intervals: [0, 3, 6], name: 'dim', type: 'diminished' },
+  { intervals: [0, 4, 8], name: 'aug', type: 'augmented' },
+  { intervals: [0, 5, 7], name: 'sus4', type: 'suspended 4' },
+  { intervals: [0, 2, 7], name: 'sus2', type: 'suspended 2' },
+  // Power chord & intervals
+  { intervals: [0, 7], name: '5', type: 'Power chord' },
+  { intervals: [0, 5], name: 'sus4 (no5)', type: 'Fourth interval' },
+  { intervals: [0, 4], name: ' (no5)', type: 'Major third' },
+  { intervals: [0, 3], name: 'm (no5)', type: 'minor third' },
+];
+
+function detectChord(absNotes) {
+  if (absNotes.length < 2) return null;
+
+  // Get unique pitch classes (0-11)
+  const pitchClasses = [...new Set(absNotes.map(n => n % 12))].sort((a, b) => a - b);
+
+  if (pitchClasses.length < 2) return null;
+
+  let bestMatch = null;
+  let bestScore = -Infinity;
+
+  // Try each pitch class as potential root
+  for (const rootPitch of pitchClasses) {
+    // Calculate intervals from this root (mod 12)
+    const intervals = pitchClasses.map(p => (p - rootPitch + 12) % 12).sort((a, b) => a - b);
+    const intervalsSet = new Set(intervals);
+
+    // Try to match against chord patterns
+    for (const pattern of CHORD_PATTERNS) {
+      // Normalize pattern intervals to 0-11
+      const normalizedPattern = pattern.intervals.map(i => i % 12);
+      const patternSet = new Set(normalizedPattern);
+
+      // Check if all pattern intervals are present in our chord
+      const allPatternPresent = normalizedPattern.every(i => intervalsSet.has(i));
+
+      if (allPatternPresent) {
+        // Calculate score:
+        // - More pattern notes matched = better (prefer specific chords)
+        // - Fewer extra notes = better
+        // - Exact match gets bonus
+        const extraNotes = intervals.filter(i => !patternSet.has(i)).length;
+        const matchedNotes = normalizedPattern.length;
+        const isExactMatch = extraNotes === 0 && intervals.length === normalizedPattern.length;
+
+        // Score formula: prioritize larger chords, penalize extras, bonus for exact
+        let score = matchedNotes * 10 - extraNotes * 3;
+        if (isExactMatch) score += 20;
+
+        // Prefer root position (bass note = root) slightly
+        const bassNote = Math.min(...absNotes) % 12;
+        if (bassNote === rootPitch) score += 2;
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = {
+            root: rootPitch,
+            pattern: pattern,
+            intervals: intervals,
+            isExact: isExactMatch
+          };
+        }
+      }
+    }
+  }
+
+  return bestMatch;
+}
+
+function updateChordDisplay() {
+  const chordNameEl = document.getElementById('chord-name');
+
+  // Collect all selected absNotes
+  const allNotes = [];
+
+  linkedFretboardPositions.forEach(posKey => {
+    const [stringIndex, fret] = posKey.split('-').map(Number);
+    allNotes.push(getAbsoluteNote(stringIndex, fret));
+  });
+
+  linkedPianoNotes.forEach(absNote => {
+    allNotes.push(absNote);
+  });
+
+  if (allNotes.length < 2) {
+    chordNameEl.textContent = '-';
+    chordNameEl.title = 'Select 2+ notes';
+    chordNameEl.classList.remove('chord-approximate');
+    return;
+  }
+
+  const chord = detectChord(allNotes);
+
+  if (chord) {
+    const rootName = currentRoot ? getNoteName(chord.root, currentRoot.useFlats) : SHARP_NAMES[chord.root];
+    const chordName = rootName + chord.pattern.name;
+
+    // Show approximate indicator if not exact match
+    if (chord.isExact) {
+      chordNameEl.textContent = chordName;
+      chordNameEl.classList.remove('chord-approximate');
+    } else {
+      chordNameEl.textContent = chordName + '*';
+      chordNameEl.classList.add('chord-approximate');
+    }
+
+    // Build detailed tooltip
+    const noteNames = [...new Set(allNotes.map(n => {
+      const useFlats = currentRoot ? currentRoot.useFlats : false;
+      return getNoteName(n % 12, useFlats);
+    }))];
+    chordNameEl.title = `${chord.pattern.type}\nNotes: ${noteNames.join(', ')}${chord.isExact ? '' : '\n(* contains extra notes)'}`;
+  } else {
+    const noteNames = [...new Set(allNotes.map(n => {
+      const useFlats = currentRoot ? currentRoot.useFlats : false;
+      return getNoteName(n % 12, useFlats);
+    }))];
+    chordNameEl.textContent = '?';
+    chordNameEl.title = `Unknown chord\nNotes: ${noteNames.join(', ')}`;
+    chordNameEl.classList.remove('chord-approximate');
+  }
+}
+
+// ========== LINKED FRETBOARD ==========
+
+function buildLinkedDotHtml(stringIndex, fret, useFlats) {
+  const absSemitone = (STANDARD_TUNING[stringIndex].semitone + fret) % 12;
+  const absNote = getAbsoluteNote(stringIndex, fret);
+  const noteName = getNoteName(absSemitone, useFlats);
+
+  return `<div class="fb-dot linked-dot" data-abs-note="${absNote}" data-string="${stringIndex}" data-fret="${fret}">
+    <span class="fb-dot-note">${noteName}</span>
+  </div>`;
+}
+
+function renderLinkedFretboardHorizontal(useFlats) {
+  let html = '<div class="fb-row fb-header-row">';
+  html += '<div class="fb-string-label"></div>';
+  for (let f = 0; f <= FRET_COUNT; f++) {
+    html += `<div class="fb-fret${f === 0 ? ' fb-nut-fret' : ''}">${f}</div>`;
+  }
+  html += '</div>';
+
+  STANDARD_TUNING.forEach((str, stringIndex) => {
+    html += '<div class="fb-row">';
+    html += `<div class="fb-string-label">${str.name}</div>`;
+    for (let fret = 0; fret <= FRET_COUNT; fret++) {
+      const cellClass = fret === 0 ? 'fb-cell fb-nut-cell' : 'fb-cell';
+      html += `<div class="${cellClass}">${buildLinkedDotHtml(stringIndex, fret, useFlats)}</div>`;
+    }
+    html += '</div>';
+  });
+
+  html += '<div class="fb-row fb-dots-row">';
+  html += '<div class="fb-string-label"></div>';
+  for (let f = 0; f <= FRET_COUNT; f++) {
+    const marker = DOUBLE_DOT_FRETS.has(f) ? '••' : DOT_FRETS.has(f) ? '•' : '';
+    html += `<div class="fb-fret-dot">${marker}</div>`;
+  }
+  html += '</div>';
+
+  return html;
+}
+
+function renderLinkedFretboardVertical(useFlats) {
+  const strings = [...STANDARD_TUNING].reverse();
+
+  let html = '<div class="fbv-row fbv-header-row">';
+  html += '<div class="fbv-fret-label"></div>';
+  strings.forEach(str => {
+    html += `<div class="fbv-string-label">${str.name}</div>`;
+  });
+  html += '<div class="fbv-dot-col"></div>';
+  html += '</div>';
+
+  for (let fret = 0; fret <= FRET_COUNT; fret++) {
+    const rowClass = fret === 0 ? 'fbv-row fbv-nut-row' : 'fbv-row';
+    html += `<div class="${rowClass}">`;
+    html += `<div class="fbv-fret-label">${fret}</div>`;
+    strings.forEach((_, idx) => {
+      const stringIndex = 5 - idx;
+      html += `<div class="fbv-cell">${buildLinkedDotHtml(stringIndex, fret, useFlats)}</div>`;
+    });
+    const marker = DOUBLE_DOT_FRETS.has(fret) ? '••' : DOT_FRETS.has(fret) ? '•' : '';
+    html += `<div class="fbv-dot-col">${marker}</div>`;
+    html += '</div>';
+  }
+
+  return html;
+}
+
+function renderLinkedFretboard(root) {
+  const container = document.getElementById('linked-fretboard');
+  const useFlats = root.useFlats;
+  const vertical = fbMobileQuery.matches;
+
+  container.className = vertical ? 'fb-vertical' : '';
+  container.innerHTML = vertical
+    ? renderLinkedFretboardVertical(useFlats)
+    : renderLinkedFretboardHorizontal(useFlats);
+
+  // Reapply highlights after re-render
+  updateLinkedHighlights();
+}
+
 // ========== UPDATE ALL ==========
 
 function updateAll(root) {
@@ -646,6 +1010,10 @@ function updateAll(root) {
   // Render fretboard
   renderFretboardButtons(root);
   renderFretboard(root);
+
+  // Render linked fretboard and piano
+  renderLinkedFretboard(root);
+  renderPianoKeyboard(root);
 }
 
 function selectRoot(rootObj) {
@@ -705,9 +1073,47 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Re-render fretboard on orientation/size change
+  // Re-render fretboards on orientation/size change
   fbMobileQuery.addEventListener('change', () => {
-    if (currentRoot) renderFretboard(currentRoot);
+    if (currentRoot) {
+      renderFretboard(currentRoot);
+      renderLinkedFretboard(currentRoot);
+    }
+  });
+
+  // Linked fretboard click handler - tracks exact position
+  document.getElementById('linked-fretboard').addEventListener('click', e => {
+    const dot = e.target.closest('.fb-dot[data-string][data-fret]');
+    if (!dot) return;
+    const stringIndex = dot.dataset.string;
+    const fret = dot.dataset.fret;
+    const posKey = `${stringIndex}-${fret}`;
+    // Toggle: click to add/remove from selection
+    if (linkedFretboardPositions.has(posKey)) {
+      linkedFretboardPositions.delete(posKey);
+    } else {
+      linkedFretboardPositions.add(posKey);
+    }
+    updateLinkedHighlights();
+  });
+
+  // Piano click handler for linked highlighting
+  document.getElementById('piano-keyboard').addEventListener('click', e => {
+    const key = e.target.closest('.piano-key[data-abs-note]');
+    if (!key) return;
+    const absNote = parseInt(key.dataset.absNote, 10);
+    // Toggle: click to add/remove from selection
+    if (linkedPianoNotes.has(absNote)) {
+      linkedPianoNotes.delete(absNote);
+    } else {
+      linkedPianoNotes.add(absNote);
+    }
+    updateLinkedHighlights();
+  });
+
+  // Clear selection button
+  document.getElementById('clear-linked-btn').addEventListener('click', () => {
+    clearLinkedHighlights();
   });
 
   // Default to C
