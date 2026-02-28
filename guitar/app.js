@@ -265,6 +265,28 @@ function getIntervalLabel(semitones, allIntervals) {
 // ========== RENDERING ==========
 
 let currentRoot = null;
+let showDiatonicChords = false;
+
+/**
+ * Determine diatonic triad quality for a given degree within a scale.
+ * Returns chord abbreviation: '' (major), 'm', 'dim', 'aug', 'sus4', 'sus2', or ''.
+ */
+function getDiatonicChordAbbr(scaleIntervals, degreeIndex) {
+  const len = scaleIntervals.length;
+  if (len < 3) return '';
+  const root = scaleIntervals[degreeIndex];
+  const third = scaleIntervals[(degreeIndex + 2) % len];
+  const fifth = scaleIntervals[(degreeIndex + 4) % len];
+  const thirdInterval = ((third - root) % 12 + 12) % 12;
+  const fifthInterval = ((fifth - root) % 12 + 12) % 12;
+  if (thirdInterval === 4 && fifthInterval === 7) return '';       // Major
+  if (thirdInterval === 3 && fifthInterval === 7) return 'm';     // Minor
+  if (thirdInterval === 3 && fifthInterval === 6) return 'dim';   // Diminished
+  if (thirdInterval === 4 && fifthInterval === 8) return 'aug';   // Augmented
+  if (thirdInterval === 2 && fifthInterval === 7) return 'sus2';
+  if (thirdInterval === 5 && fifthInterval === 7) return 'sus4';
+  return '';
+}
 
 /**
  * Render note badges with stacked interval labels.
@@ -278,13 +300,15 @@ function stepLabel(semitones) {
   return String(semitones);
 }
 
-function renderNoteBadges(noteNames, intervalLabels, intervals) {
+function renderNoteBadges(noteNames, intervalLabels, intervals, chordAbbrs) {
   let html = '';
   noteNames.forEach((n, i) => {
     const isRoot = (i === 0);
     const cls = isRoot ? 'note-badge root-note' : 'note-badge';
     const label = intervalLabels[i] || '';
-    html += `<span class="${cls}"><span class="note-name">${n}</span><span class="note-interval">${label}</span></span>`;
+    const displayName = (showDiatonicChords && chordAbbrs && chordAbbrs[i] !== undefined)
+      ? n + chordAbbrs[i] : n;
+    html += `<span class="${cls}"><span class="note-name">${displayName}</span><span class="note-interval">${label}</span></span>`;
     // Add step indicator between notes
     if (intervals && i < noteNames.length - 1) {
       const gap = ((intervals[i + 1] - intervals[i]) % 12 + 12) % 12;
@@ -323,10 +347,14 @@ function renderModeTable(tableId, parentScale, modes, root) {
     const subtitleHtml = mode.subtitle ? `<span class="mode-subtitle">${mode.subtitle}</span>` : '';
     const qualityClass = `quality-${mode.quality}`;
 
+    // Compute diatonic chord abbreviations for each degree
+    const chordAbbrs = modeIntervals.map((_, j) => getDiatonicChordAbbr(modeIntervals, j));
+    chordAbbrs.push(chordAbbrs[0]); // octave repeats root chord
+
     html += `<tr class="${qualityClass}">
       <td class="mode-degree">${mode.degree}</td>
       <td class="mode-name">${mode.name}${subtitleHtml}</td>
-      <td><div class="mode-notes">${renderNoteBadges(notes, labels, fullIntervals)}</div></td>
+      <td><div class="mode-notes">${renderNoteBadges(notes, labels, fullIntervals, chordAbbrs)}</div></td>
     </tr>`;
   });
 
@@ -342,10 +370,12 @@ function renderOtherScalesTable(tableId, scales, root) {
     // Interval labels showing quality relative to major scale
     const labels = scale.intervals.map(s => getIntervalLabel(s, scale.intervals));
     const subtitleHtml = scale.subtitle ? `<span class="mode-subtitle">${scale.subtitle}</span>` : '';
+    // Compute diatonic chord abbreviations
+    const chordAbbrs = scale.intervals.map((_, j) => getDiatonicChordAbbr(scale.intervals, j));
 
     html += `<tr>
       <td class="mode-name">${scale.name}${subtitleHtml}</td>
-      <td><div class="mode-notes">${renderNoteBadges(notes, labels, scale.intervals)}</div></td>
+      <td><div class="mode-notes">${renderNoteBadges(notes, labels, scale.intervals, chordAbbrs)}</div></td>
     </tr>`;
   });
 
@@ -1032,6 +1062,17 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.dataset.name = note.name;
     btn.addEventListener('click', () => selectRoot(note));
     selector.appendChild(btn);
+  });
+
+  // Diatonic chords toggle
+  document.getElementById('show-chords-toggle').addEventListener('change', e => {
+    showDiatonicChords = e.target.checked;
+    if (currentRoot) {
+      renderModeTable('diatonic-modes', MAJOR_SCALE, DIATONIC_MODES, currentRoot);
+      renderModeTable('harmonic-modes', HARMONIC_MINOR_SCALE, HARMONIC_MINOR_MODES, currentRoot);
+      renderOtherScalesTable('other-scales', OTHER_SCALES, currentRoot);
+      renderOtherScalesTable('pentatonic-scales', PENTATONIC_SCALES, currentRoot);
+    }
   });
 
   // Fretboard root note buttons
